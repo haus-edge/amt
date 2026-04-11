@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RFP Calendar</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+</head>
+<body>
+    <header>
+        <h1>RFP Calendar</h1>
+        <button id="add-btn">+ Add RFP</button>
+    </header>
+
+    <div id="calendar"></div>
+
+    <div id="modal" class="modal hidden">
+        <div class="modal-content">
+            <h2>New RFP</h2>
+            <label>
+                Customer
+                <input type="text" id="customer" placeholder="Acme Corp" autocomplete="off">
+            </label>
+            <label>
+                Due date
+                <input type="date" id="due_date">
+            </label>
+            <div class="actions">
+                <button id="save-btn">Save</button>
+                <button id="cancel-btn" class="secondary">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const modal = document.getElementById('modal');
+        const customerInput = document.getElementById('customer');
+        const dateInput = document.getElementById('due_date');
+        let calendar;
+
+        function openModal(preselectDate) {
+            customerInput.value = '';
+            dateInput.value = preselectDate || new Date().toISOString().slice(0, 10);
+            modal.classList.remove('hidden');
+            customerInput.focus();
+        }
+
+        function closeModal() {
+            modal.classList.add('hidden');
+        }
+
+        async function saveRfp() {
+            const customer = customerInput.value.trim();
+            const due_date = dateInput.value;
+            if (!customer || !due_date) {
+                alert('Customer name and date are required.');
+                return;
+            }
+            const resp = await fetch('/api/rfps', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({customer, due_date}),
+            });
+            if (!resp.ok) {
+                alert('Failed to save RFP');
+                return;
+            }
+            closeModal();
+            calendar.refetchEvents();
+        }
+
+        async function deleteRfp(id) {
+            if (!confirm('Delete this RFP?')) return;
+            const resp = await fetch(`/api/rfps/${id}`, {method: 'DELETE'});
+            if (resp.ok) calendar.refetchEvents();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const calendarEl = document.getElementById('calendar');
+            calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'dayGridMonth',
+                headerToolbar: {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: 'dayGridMonth,listMonth',
+                },
+                events: '/api/rfps',
+                dateClick: (info) => openModal(info.dateStr),
+                eventClick: (info) => deleteRfp(info.event.id),
+                height: 'auto',
+            });
+            calendar.render();
+
+            document.getElementById('add-btn').addEventListener('click', () => openModal());
+            document.getElementById('save-btn').addEventListener('click', saveRfp);
+            document.getElementById('cancel-btn').addEventListener('click', closeModal);
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) closeModal();
+            });
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeModal();
+            });
+        });
+    </script>
+</body>
+</html>
