@@ -11,7 +11,9 @@ http://<that-host>:5000.
 
 All data lives in rfp_calendar.db (SQLite) next to this file.
 """
+import calendar as cal
 import sqlite3
+from datetime import date
 from pathlib import Path
 
 from flask import Flask, g, jsonify, render_template, request
@@ -92,6 +94,38 @@ def create_rfp():
         jsonify({"id": cursor.lastrowid, "customer": customer, "due_date": due_date}),
         201,
     )
+
+
+@app.route("/api/summary", methods=["GET"])
+def summary():
+    year = request.args.get("year", date.today().year, type=int)
+    db = get_db()
+    rows = db.execute(
+        "SELECT id, customer, due_date FROM rfps "
+        "WHERE due_date >= ? AND due_date < ? ORDER BY due_date",
+        (f"{year}-01-01", f"{year + 1}-01-01"),
+    ).fetchall()
+
+    months = []
+    for m in range(1, 13):
+        prefix = f"{year}-{m:02d}"
+        month_rfps = [
+            {"id": r["id"], "customer": r["customer"], "due_date": r["due_date"]}
+            for r in rows
+            if r["due_date"].startswith(prefix)
+        ]
+        months.append({
+            "month": m,
+            "name": cal.month_name[m],
+            "count": len(month_rfps),
+            "rfps": month_rfps,
+        })
+
+    return jsonify({
+        "year": year,
+        "total": len(rows),
+        "months": months,
+    })
 
 
 @app.route("/api/rfps/<int:rfp_id>", methods=["DELETE"])

@@ -15,6 +15,17 @@
 
     <div id="calendar"></div>
 
+    <div id="summary" class="summary hidden">
+        <div class="summary-header">
+            <button id="sum-prev" class="nav-btn">&larr;</button>
+            <h2 id="sum-year-title">2026 Summary</h2>
+            <button id="sum-next" class="nav-btn">&rarr;</button>
+            <span id="sum-total" class="sum-total"></span>
+        </div>
+        <div class="year-grid" id="year-grid"></div>
+        <div id="month-detail"></div>
+    </div>
+
     <div id="modal" class="modal hidden">
         <div class="modal-content">
             <h2>New RFP</h2>
@@ -37,7 +48,10 @@
         const modal = document.getElementById('modal');
         const customerInput = document.getElementById('customer');
         const dateInput = document.getElementById('due_date');
+        const calendarEl_ = document.getElementById('calendar');
+        const summaryEl = document.getElementById('summary');
         let calendar;
+        let summaryYear = new Date().getFullYear();
 
         function openModal(preselectDate) {
             customerInput.value = '';
@@ -68,14 +82,100 @@
             }
             closeModal();
             calendar.refetchEvents();
+            if (!summaryEl.classList.contains('hidden')) loadSummary();
         }
 
         async function deleteRfp(id) {
             if (!confirm('Delete this RFP?')) return;
             const resp = await fetch(`/api/rfps/${id}`, {method: 'DELETE'});
-            if (resp.ok) calendar.refetchEvents();
+            if (resp.ok) {
+                calendar.refetchEvents();
+                if (!summaryEl.classList.contains('hidden')) loadSummary();
+            }
         }
 
+        /* ---------- Summary ---------- */
+        function showSummary() {
+            calendarEl_.classList.add('hidden');
+            summaryEl.classList.remove('hidden');
+            document.querySelector('.fc-summaryBtn-button')?.classList.add('fc-button-active');
+            loadSummary();
+        }
+
+        function hideSummary() {
+            summaryEl.classList.add('hidden');
+            calendarEl_.classList.remove('hidden');
+            document.querySelector('.fc-summaryBtn-button')?.classList.remove('fc-button-active');
+        }
+
+        async function loadSummary() {
+            const resp = await fetch(`/api/summary?year=${summaryYear}`);
+            const data = await resp.json();
+            const maxCount = Math.max(1, ...data.months.map(m => m.count));
+            const currentMonth = new Date().getMonth() + 1;
+            const isCurrentYear = summaryYear === new Date().getFullYear();
+
+            document.getElementById('sum-year-title').textContent = `${data.year} Summary`;
+            document.getElementById('sum-total').textContent = `${data.total} RFP${data.total !== 1 ? 's' : ''} total`;
+
+            const grid = document.getElementById('year-grid');
+            grid.innerHTML = data.months.map(m => {
+                const pct = maxCount > 0 ? (m.count / maxCount) * 100 : 0;
+                const isCurrent = isCurrentYear && m.month === currentMonth;
+                return `
+                    <div class="month-card ${isCurrent ? 'current' : ''}" data-month="${m.month}">
+                        <div class="month-name">${m.name}</div>
+                        <div class="month-bar-track">
+                            <div class="month-bar-fill" style="width:${pct}%"></div>
+                        </div>
+                        <div class="month-count">${m.count}</div>
+                    </div>`;
+            }).join('');
+
+            grid.querySelectorAll('.month-card').forEach(card => {
+                card.addEventListener('click', () => {
+                    const m = parseInt(card.dataset.month);
+                    showMonthDetail(data.months[m - 1]);
+                });
+            });
+
+            const detailMonth = isCurrentYear
+                ? data.months[currentMonth - 1]
+                : data.months.find(m => m.count > 0) || data.months[0];
+            showMonthDetail(detailMonth);
+        }
+
+        function showMonthDetail(monthData) {
+            const detail = document.getElementById('month-detail');
+            if (monthData.rfps.length === 0) {
+                detail.innerHTML = `<h3>${monthData.name}</h3><p class="no-rfps">No RFPs this month</p>`;
+                return;
+            }
+            const rows = monthData.rfps.map(r => {
+                const d = new Date(r.due_date + 'T00:00:00');
+                const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
+                const dayNum = d.getDate();
+                return `<tr>
+                    <td class="detail-day">${dayName}</td>
+                    <td class="detail-date">${monthData.name} ${dayNum}</td>
+                    <td class="detail-customer">${escapeHtml(r.customer)}</td>
+                </tr>`;
+            }).join('');
+            detail.innerHTML = `
+                <h3>${monthData.name} <span class="detail-count">${monthData.count} RFP${monthData.count !== 1 ? 's' : ''}</span></h3>
+                <table class="detail-table">
+                    <thead><tr><th>Day</th><th>Date</th><th>Customer</th></tr></thead>
+                    <tbody>${rows}</tbody>
+                </table>`;
+        }
+
+        function escapeHtml(str) {
+            const d = document.createElement('div');
+            d.textContent = str;
+            return d.innerHTML;
+        }
+
+        /* ---------- Init ---------- */
         document.addEventListener('DOMContentLoaded', () => {
             const calendarEl = document.getElementById('calendar');
             calendar = new FullCalendar.Calendar(calendarEl, {
@@ -83,7 +183,19 @@
                 headerToolbar: {
                     left: 'prev,next today',
                     center: 'title',
-                    right: 'dayGridMonth,listYear',
+                    right: 'dayGridMonth,listYear,summaryBtn',
+                },
+                customButtons: {
+                    summaryBtn: {
+                        text: 'Summary',
+                        click: () => {
+                            if (summaryEl.classList.contains('hidden')) {
+                                showSummary();
+                            } else {
+                                hideSummary();
+                            }
+                        },
+                    },
                 },
                 views: {
                     listYear: {
@@ -102,6 +214,9 @@
             });
             calendar.render();
 
+            // When switching to Month or List view, hide summary
+            calendar.on('viewDidMount', () => hideSummary());
+
             document.getElementById('add-btn').addEventListener('click', () => openModal());
             document.getElementById('save-btn').addEventListener('click', saveRfp);
             document.getElementById('cancel-btn').addEventListener('click', closeModal);
@@ -111,6 +226,10 @@
             document.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeModal();
             });
+
+            // Summary year navigation
+            document.getElementById('sum-prev').addEventListener('click', () => { summaryYear--; loadSummary(); });
+            document.getElementById('sum-next').addEventListener('click', () => { summaryYear++; loadSummary(); });
         });
     </script>
 </body>
