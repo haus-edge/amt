@@ -51,10 +51,15 @@ def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 customer TEXT NOT NULL,
                 due_date TEXT NOT NULL,
+                added_by TEXT NOT NULL DEFAULT '',
                 created_at TEXT NOT NULL DEFAULT (datetime('now'))
             )
             """
         )
+        # Migrate existing databases that don't have the added_by column yet
+        cols = [r[1] for r in db.execute("PRAGMA table_info(rfps)").fetchall()]
+        if "added_by" not in cols:
+            db.execute("ALTER TABLE rfps ADD COLUMN added_by TEXT NOT NULL DEFAULT ''")
 
 
 @app.before_request
@@ -91,15 +96,19 @@ def index():
 @app.route("/api/rfps", methods=["GET"])
 def list_rfps():
     rows = get_db().execute(
-        "SELECT id, customer, due_date FROM rfps ORDER BY due_date"
+        "SELECT id, customer, due_date, added_by FROM rfps ORDER BY due_date"
     ).fetchall()
     return jsonify(
         [
             {
                 "id": row["id"],
-                "title": row["customer"],
+                "title": f"{row['customer']} ({row['added_by']})" if row["added_by"] else row["customer"],
                 "start": row["due_date"],
                 "allDay": True,
+                "extendedProps": {
+                    "customer": row["customer"],
+                    "added_by": row["added_by"],
+                },
             }
             for row in rows
         ]
@@ -111,18 +120,19 @@ def create_rfp():
     data = request.get_json(silent=True) or {}
     customer = (data.get("customer") or "").strip()
     due_date = (data.get("due_date") or "").strip()
+    added_by = (data.get("added_by") or "").strip()
 
-    if not customer or not due_date:
-        return jsonify({"error": "customer and due_date are required"}), 400
+    if not customer or not due_date or not added_by:
+        return jsonify({"error": "customer, due_date, and added_by are required"}), 400
 
     db = get_db()
     cursor = db.execute(
-        "INSERT INTO rfps (customer, due_date) VALUES (?, ?)",
-        (customer, due_date),
+        "INSERT INTO rfps (customer, due_date, added_by) VALUES (?, ?, ?)",
+        (customer, due_date, added_by),
     )
     db.commit()
     return (
-        jsonify({"id": cursor.lastrowid, "customer": customer, "due_date": due_date}),
+        jsonify({"id": cursor.lastrowid, "customer": customer, "due_date": due_date, "added_by": added_by}),
         201,
     )
 
@@ -132,7 +142,7 @@ def summary():
     year = request.args.get("year", date.today().year, type=int)
     db = get_db()
     rows = db.execute(
-        "SELECT id, customer, due_date FROM rfps "
+        "SELECT id, customer, due_date, added_by FROM rfps "
         "WHERE due_date >= ? AND due_date < ? ORDER BY due_date",
         (f"{year}-01-01", f"{year + 1}-01-01"),
     ).fetchall()
@@ -141,7 +151,7 @@ def summary():
     for m in range(1, 13):
         prefix = f"{year}-{m:02d}"
         month_rfps = [
-            {"id": r["id"], "customer": r["customer"], "due_date": r["due_date"]}
+            {"id": r["id"], "customer": r["customer"], "due_date": r["due_date"], "added_by": r["added_by"]}
             for r in rows
             if r["due_date"].startswith(prefix)
         ]

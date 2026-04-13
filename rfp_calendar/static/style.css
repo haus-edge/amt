@@ -255,6 +255,10 @@ button.secondary:hover {
     font-weight: 600;
 }
 
+.detail-addedby {
+    color: #666;
+}
+
 /* ---------- Login ---------- */
 .login-wrapper {
     display: flex;

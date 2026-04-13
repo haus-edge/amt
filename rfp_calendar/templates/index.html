@@ -30,6 +30,10 @@
         <div class="modal-content">
             <h2>New RFP</h2>
             <label>
+                Your name
+                <input type="text" id="added_by" placeholder="John Smith" autocomplete="off">
+            </label>
+            <label>
                 Customer
                 <input type="text" id="customer" placeholder="Acme Corp" autocomplete="off">
             </label>
@@ -46,6 +50,7 @@
 
     <script>
         const modal = document.getElementById('modal');
+        const addedByInput = document.getElementById('added_by');
         const customerInput = document.getElementById('customer');
         const dateInput = document.getElementById('due_date');
         const calendarEl_ = document.getElementById('calendar');
@@ -54,10 +59,15 @@
         let summaryYear = new Date().getFullYear();
 
         function openModal(preselectDate) {
+            addedByInput.value = localStorage.getItem('rfp_user') || '';
             customerInput.value = '';
             dateInput.value = preselectDate || new Date().toISOString().slice(0, 10);
             modal.classList.remove('hidden');
-            customerInput.focus();
+            if (addedByInput.value) {
+                customerInput.focus();
+            } else {
+                addedByInput.focus();
+            }
         }
 
         function closeModal() {
@@ -65,16 +75,18 @@
         }
 
         async function saveRfp() {
+            const added_by = addedByInput.value.trim();
             const customer = customerInput.value.trim();
             const due_date = dateInput.value;
-            if (!customer || !due_date) {
-                alert('Customer name and date are required.');
+            if (!added_by || !customer || !due_date) {
+                alert('Your name, customer name, and date are all required.');
                 return;
             }
+            localStorage.setItem('rfp_user', added_by);
             const resp = await fetch('/api/rfps', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({customer, due_date}),
+                body: JSON.stringify({customer, due_date, added_by}),
             });
             if (!resp.ok) {
                 alert('Failed to save RFP');
@@ -159,12 +171,13 @@
                     <td class="detail-day">${dayName}</td>
                     <td class="detail-date">${monthData.name} ${dayNum}</td>
                     <td class="detail-customer">${escapeHtml(r.customer)}</td>
+                    <td class="detail-addedby">${escapeHtml(r.added_by || '')}</td>
                 </tr>`;
             }).join('');
             detail.innerHTML = `
                 <h3>${monthData.name} <span class="detail-count">${monthData.count} RFP${monthData.count !== 1 ? 's' : ''}</span></h3>
                 <table class="detail-table">
-                    <thead><tr><th>Day</th><th>Date</th><th>Customer</th></tr></thead>
+                    <thead><tr><th>Day</th><th>Date</th><th>Customer</th><th>Added by</th></tr></thead>
                     <tbody>${rows}</tbody>
                 </table>`;
         }
