@@ -83,12 +83,22 @@
                 headerToolbar: {
                     left: 'prev,next today',
                     center: 'title',
-                    right: 'dayGridMonth,listMonth',
+                    right: 'dayGridMonth,listYear',
+                },
+                views: {
+                    listYear: {
+                        type: 'list',
+                        duration: { years: 1 },
+                        buttonText: 'List',
+                        listDayFormat: { month: 'long', day: 'numeric', year: 'numeric' },
+                        listDaySideFormat: { weekday: 'long' },
+                    },
                 },
                 events: '/api/rfps',
                 dateClick: (info) => openModal(info.dateStr),
                 eventClick: (info) => deleteRfp(info.event.id),
                 height: 'auto',
+                noEventsText: 'No RFPs scheduled',
             });
             calendar.render();
 
