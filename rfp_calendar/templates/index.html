@@ -108,7 +108,7 @@
 
         /* ---------- Summary ---------- */
         function showSummary() {
-            calendarEl_.classList.add('hidden');
+            document.querySelector('.fc-view-harness')?.classList.add('hidden');
             summaryEl.classList.remove('hidden');
             document.querySelector('.fc-summaryBtn-button')?.classList.add('fc-button-active');
             loadSummary();
@@ -116,7 +116,7 @@
 
         function hideSummary() {
             summaryEl.classList.add('hidden');
-            calendarEl_.classList.remove('hidden');
+            document.querySelector('.fc-view-harness')?.classList.remove('hidden');
             document.querySelector('.fc-summaryBtn-button')?.classList.remove('fc-button-active');
         }
 
