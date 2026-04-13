@@ -12,15 +12,20 @@ http://<that-host>:5000.
 All data lives in rfp_calendar.db (SQLite) next to this file.
 """
 import calendar as cal
+import os
 import sqlite3
 from datetime import date
 from pathlib import Path
 
-from flask import Flask, g, jsonify, render_template, request
+from flask import Flask, g, jsonify, redirect, render_template, request, session, url_for
 
 DB_PATH = Path(__file__).parent / "rfp_calendar.db"
 
+# ── Change this to your team's password ──
+TEAM_PASSWORD = os.environ.get("RFP_PASSWORD", "rfp2026")
+
 app = Flask(__name__)
+app.secret_key = os.environ.get("SECRET_KEY", "replace-me-with-something-random")
 
 
 def get_db():
@@ -50,6 +55,32 @@ def init_db():
             )
             """
         )
+
+
+@app.before_request
+def require_login():
+    open_endpoints = ("login", "static")
+    if request.endpoint in open_endpoints:
+        return
+    if not session.get("authenticated"):
+        return redirect(url_for("login"))
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    error = None
+    if request.method == "POST":
+        if request.form.get("password") == TEAM_PASSWORD:
+            session["authenticated"] = True
+            return redirect(url_for("index"))
+        error = "Wrong password"
+    return render_template("login.html", error=error)
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("login"))
 
 
 @app.route("/")

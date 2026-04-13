@@ -254,3 +254,56 @@ button.secondary:hover {
 .detail-customer {
     font-weight: 600;
 }
+
+/* ---------- Login ---------- */
+.login-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 80vh;
+}
+
+.login-box {
+    background: white;
+    padding: 36px;
+    border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    width: 100%;
+    max-width: 380px;
+    text-align: center;
+}
+
+.login-box h1 {
+    font-size: 22px;
+    margin-bottom: 4px;
+}
+
+.login-box p {
+    color: #666;
+    font-size: 14px;
+    margin-bottom: 20px;
+}
+
+.login-box input {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 14px;
+    border: 1px solid #d1d5db;
+    border-radius: 5px;
+    font-size: 14px;
+    text-align: center;
+}
+
+.login-box button {
+    width: 100%;
+}
+
+.login-error {
+    background: #fef2f2;
+    color: #b91c1c;
+    padding: 8px 12px;
+    border-radius: 5px;
+    font-size: 13px;
+    margin-bottom: 14px;
+}
