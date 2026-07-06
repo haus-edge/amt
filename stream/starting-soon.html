@@ -1,0 +1,431 @@
+<title>AMT — Stream Starting Soon</title>
+<style>
+  /* ============================================================
+     AMT BALANCE — Animated "Stream Starting Soon" overlay
+     1920x1080 canvas. Drop into OBS as a browser source.
+     Fully self-contained: no external fonts, scripts, or images.
+     ============================================================ */
+
+  :root{
+    --bg-0:#04080a;
+    --bg-1:#060d0f;
+    --teal:#18e3c8;
+    --teal-bright:#5cf0dc;
+    --teal-deep:#0c8f80;
+    --teal-serif:#31c6b2;
+    --ink:#f2efe4;      /* warm off-white headline */
+    --ink-2:#e7ecec;    /* cool white */
+    --muted:#5f6d6b;
+    --muted-2:#8996942e;
+    --line:#1b2b2b;
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0}
+
+  html,body{
+    height:100%;
+    background:#000;
+    overflow:hidden;
+    font-family:"Helvetica Neue",Arial,"Segoe UI",sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* viewport scaler: keeps the 1920x1080 stage centered + contained */
+  #scaler{
+    position:fixed; inset:0;
+    display:flex; align-items:center; justify-content:center;
+  }
+
+  .stage{
+    position:relative;
+    width:1920px; height:1080px;
+    flex:none;
+    overflow:hidden;
+    color:var(--ink-2);
+    background:
+      radial-gradient(120% 90% at 42% 34%, #0a1618 0%, var(--bg-1) 42%, var(--bg-0) 100%);
+  }
+
+  /* ---------- background layers ---------- */
+  .grid{
+    position:absolute; inset:-2px;
+    background-image:
+      linear-gradient(to right, #12201f 1px, transparent 1px),
+      linear-gradient(to bottom, #12201f 1px, transparent 1px);
+    background-size:64px 64px;
+    opacity:.28;
+    -webkit-mask-image:radial-gradient(110% 100% at 50% 40%, #000 55%, transparent 100%);
+            mask-image:radial-gradient(110% 100% at 50% 40%, #000 55%, transparent 100%);
+    animation:gridDrift 26s linear infinite;
+  }
+  @keyframes gridDrift{ to{ background-position:64px 64px; } }
+
+  /* breathing glow behind the headline / center */
+  .glow{
+    position:absolute;
+    width:1200px; height:900px;
+    left:34%; top:30%;
+    transform:translate(-50%,-50%);
+    background:radial-gradient(circle at center,
+        rgba(24,227,200,.16) 0%,
+        rgba(24,227,200,.06) 34%,
+        transparent 66%);
+    filter:blur(6px);
+    animation:breathe 7.5s ease-in-out infinite;
+    pointer-events:none;
+  }
+  @keyframes breathe{
+    0%,100%{ opacity:.55; transform:translate(-50%,-50%) scale(1); }
+    50%    { opacity:1;   transform:translate(-50%,-50%) scale(1.08); }
+  }
+
+  /* soft vignette on top of everything */
+  .vignette{
+    position:absolute; inset:0; pointer-events:none;
+    background:radial-gradient(130% 120% at 50% 45%, transparent 58%, rgba(0,0,0,.72) 100%);
+  }
+
+  /* ---------- background candlestick chart ---------- */
+  .chart{ position:absolute; right:0; top:0; width:1180px; height:1080px; opacity:.9; }
+  .chart .refline{ stroke:#294140; stroke-width:1.4; stroke-dasharray:7 9; opacity:0; animation:refIn 1.2s ease forwards; }
+  .chart .reflabel{ fill:#4a5a58; font-size:15px; letter-spacing:2px; font-weight:600; opacity:0; animation:refIn 1.4s ease forwards; }
+  @keyframes refIn{ to{ opacity:1; } }
+
+  .candle{ opacity:0; transform-box:fill-box; transform-origin:center bottom;
+           animation:candleIn .5s cubic-bezier(.2,.8,.3,1) forwards; }
+  .candle .wick{ stroke:#1f6f66; stroke-width:2; }
+  .candle .body-up{ fill:#12b7a3; }
+  .candle .body-dn{ fill:#0e5f57; }
+  @keyframes candleIn{ from{ opacity:0; transform:translateY(24px) scaleY(.4); } to{ opacity:.85; transform:none; } }
+
+  /* the momentum line that draws across the chart */
+  .momentum{ fill:none; stroke:url(#lineGrad); stroke-width:2.5;
+             filter:drop-shadow(0 0 6px rgba(24,227,200,.5));
+             stroke-dasharray:2600; stroke-dashoffset:2600;
+             animation:draw 3.2s ease-out .4s forwards; }
+  @keyframes draw{ to{ stroke-dashoffset:0; } }
+
+  .spark{ fill:var(--teal-bright); filter:drop-shadow(0 0 8px var(--teal));
+          opacity:0; animation:sparkIn .5s ease 3.4s forwards, sparkPulse 2.4s ease-in-out 3.9s infinite; }
+  @keyframes sparkIn{ to{ opacity:1; } }
+  @keyframes sparkPulse{ 0%,100%{ r:5; opacity:1;} 50%{ r:7; opacity:.7;} }
+
+  /* ---------- left content column ---------- */
+  .content{ position:absolute; left:96px; top:150px; width:1020px; }
+
+  .brandrow{ display:flex; align-items:center; gap:34px; opacity:0; animation:rise .9s ease .15s forwards; }
+
+  /* logo mark */
+  .logo{ display:flex; align-items:center; gap:18px; }
+  .logo svg{ width:96px; height:96px; filter:drop-shadow(0 0 14px rgba(24,227,200,.28)); }
+  .logo .wm{ font-weight:900; font-size:74px; letter-spacing:-2px; color:#fff;
+             line-height:1; text-shadow:0 0 22px rgba(255,255,255,.12); }
+
+  .vdiv{ width:2px; height:92px; background:linear-gradient(#2c4241,#0e1918); }
+
+  .brandtext .b1{ font-weight:800; font-size:40px; letter-spacing:4px; color:#fff; }
+  .brandtext .b1 u{ text-decoration:none; border-bottom:4px solid var(--teal); padding-bottom:2px; }
+  .brandtext .b2{ font-family:Georgia,"Times New Roman",serif; font-style:italic;
+                  font-size:31px; color:var(--teal-serif); margin-top:6px; letter-spacing:.5px; }
+
+  .headline{
+    margin-top:56px;
+    font-weight:800; font-size:150px; line-height:.92; letter-spacing:1px;
+    color:var(--ink);
+    text-shadow:0 0 40px rgba(242,239,228,.10);
+    position:relative; display:inline-block;
+    opacity:0; animation:rise 1s ease .35s forwards;
+  }
+  /* light sweep across the headline */
+  .headline::after{
+    content:""; position:absolute; inset:0;
+    background:linear-gradient(105deg, transparent 38%, rgba(255,255,255,.55) 50%, transparent 62%);
+    background-size:250% 100%;
+    -webkit-background-clip:text; background-clip:text;
+    color:transparent;
+    animation:sheen 6s ease-in-out 1.6s infinite;
+    pointer-events:none;
+  }
+  @keyframes sheen{ 0%{background-position:180% 0;} 45%,100%{background-position:-80% 0;} }
+
+  .underline{
+    height:6px; width:660px; margin-top:26px; border-radius:3px;
+    background:linear-gradient(90deg, var(--teal-bright), var(--teal) 40%, transparent);
+    box-shadow:0 0 18px rgba(24,227,200,.55);
+    transform-origin:left center; transform:scaleX(0);
+    animation:grow 1s cubic-bezier(.2,.8,.2,1) .8s forwards;
+    position:relative; overflow:hidden;
+  }
+  .underline::after{
+    content:""; position:absolute; top:0; left:0; height:100%; width:120px;
+    background:linear-gradient(90deg,transparent,rgba(255,255,255,.85),transparent);
+    animation:slide 3.4s ease-in-out 2s infinite;
+  }
+  @keyframes grow{ to{ transform:scaleX(1); } }
+  @keyframes slide{ 0%{left:-120px;} 55%,100%{left:660px;} }
+
+  .tag{ margin-top:40px; font-weight:800; font-size:44px; letter-spacing:10px;
+        color:var(--teal); text-shadow:0 0 20px rgba(24,227,200,.35);
+        opacity:0; animation:rise .9s ease 1s forwards; }
+  .sub{ margin-top:26px; font-weight:700; font-size:24px; letter-spacing:8px;
+        color:var(--muted); opacity:0; animation:rise .9s ease 1.15s forwards; }
+
+  /* footer contact pill */
+  .footer{
+    display:inline-flex; align-items:center; gap:30px;
+    margin-top:64px; padding:20px 34px;
+    border:1px solid #223433; border-radius:14px;
+    background:rgba(8,18,18,.5); backdrop-filter:blur(3px);
+    opacity:0; animation:rise .9s ease 1.35s forwards;
+  }
+  .footer .item{ display:flex; align-items:center; gap:12px; font-size:22px; letter-spacing:2px; color:#c9d2d1; }
+  .footer .item svg{ width:26px; height:26px; }
+  .footer .sep{ width:1px; height:26px; background:#2a3c3b; }
+  .footer .ic{ fill:var(--teal); }
+
+  @keyframes rise{ from{ opacity:0; transform:translateY(26px); } to{ opacity:1; transform:none; } }
+
+  /* ---------- radar ---------- */
+  .radar{ position:absolute; right:150px; top:295px; width:520px; height:520px;
+          opacity:0; animation:rise 1.1s ease .5s forwards; }
+  .radar .ring{ position:absolute; left:50%; top:50%; border-radius:50%;
+                border:1.5px solid rgba(24,227,200,.28);
+                transform:translate(-50%,-50%);
+                animation:ringBreathe 6s ease-in-out infinite; }
+  .ring.r1{ width:120px; height:120px; }
+  .ring.r2{ width:250px; height:250px; animation-delay:.4s; }
+  .ring.r3{ width:380px; height:380px; animation-delay:.8s; }
+  .ring.r4{ width:510px; height:510px; border-color:rgba(24,227,200,.14); animation-delay:1.2s; }
+  @keyframes ringBreathe{ 0%,100%{ box-shadow:0 0 0 rgba(24,227,200,0); opacity:.8; }
+                          50%{ box-shadow:0 0 24px rgba(24,227,200,.18); opacity:1; } }
+
+  /* rotating radar sweep */
+  .sweep{ position:absolute; left:50%; top:50%; width:510px; height:510px;
+          transform:translate(-50%,-50%); border-radius:50%;
+          background:conic-gradient(from 0deg, rgba(24,227,200,.32), transparent 32%);
+          -webkit-mask:radial-gradient(circle, transparent 26px, #000 27px);
+                  mask:radial-gradient(circle, transparent 26px, #000 27px);
+          animation:spin 7s linear infinite; opacity:.6; }
+  @keyframes spin{ to{ transform:translate(-50%,-50%) rotate(360deg); } }
+
+  /* expanding ping */
+  .svgoverlay{ position:absolute; inset:0; overflow:visible; }
+  .ping{ fill:none; stroke:var(--teal); stroke-width:2; transform-origin:260px 260px; }
+  .ping.p1{ animation:ping 4s ease-out infinite; }
+  .ping.p2{ animation:ping 4s ease-out 2s infinite; }
+  @keyframes ping{ 0%{ r:30; opacity:.6; } 100%{ r:250; opacity:0; } }
+
+  .connector{ stroke:url(#connGrad); stroke-width:1.6; stroke-dasharray:5 7;
+              animation:flow 1.2s linear infinite; opacity:.7; }
+  @keyframes flow{ to{ stroke-dashoffset:-24; } }
+  .nodedot{ fill:var(--teal-bright); }
+
+  /* center + node pills */
+  .center{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+           width:110px; height:110px; border-radius:50%;
+           display:flex; align-items:center; justify-content:center;
+           background:radial-gradient(circle,#0a1a1a,#050d0d);
+           border:1.5px solid rgba(24,227,200,.5);
+           box-shadow:0 0 30px rgba(24,227,200,.25), inset 0 0 20px rgba(24,227,200,.15);
+           font-weight:800; font-size:34px; letter-spacing:2px; color:var(--teal);
+           animation:centerPulse 3s ease-in-out infinite; }
+  @keyframes centerPulse{ 0%,100%{ box-shadow:0 0 30px rgba(24,227,200,.22), inset 0 0 20px rgba(24,227,200,.12); }
+                          50%{ box-shadow:0 0 46px rgba(24,227,200,.45), inset 0 0 26px rgba(24,227,200,.22); } }
+
+  .node{ position:absolute; transform:translate(-50%,-50%);
+         padding:10px 20px; border-radius:9px;
+         border:1px solid rgba(24,227,200,.45);
+         background:rgba(7,17,17,.9);
+         font-weight:700; font-size:19px; letter-spacing:2px; color:#dff6f1;
+         white-space:nowrap; box-shadow:0 0 14px rgba(24,227,200,.12); }
+  .node::before{ content:""; position:absolute; left:50%; top:50%;
+                 width:9px; height:9px; margin:-4.5px 0 0 -4.5px; border-radius:50%;
+                 background:var(--teal-bright); box-shadow:0 0 12px var(--teal);
+                 animation:dotPulse 2.4s ease-in-out infinite; }
+  .node.balance  { left:50%;  top:6%;   }
+  .node.momentum { left:96%;  top:50%;  }
+  .node.context  { left:50%;  top:94%;  }
+  .node.structure{ left:4%;   top:50%;  }
+  .node.balance::before  { top:-14px; }
+  .node.context::before  { top:calc(100% + 14px); }
+  .node.momentum::before { left:-16px; top:50%; }
+  .node.structure::before{ left:calc(100% + 16px); top:50%; }
+  .node.balance  { animation:nodeFloat 5s ease-in-out infinite; }
+  .node.momentum { animation:nodeFloat 5s ease-in-out .6s infinite; }
+  .node.context  { animation:nodeFloat 5s ease-in-out 1.2s infinite; }
+  .node.structure{ animation:nodeFloat 5s ease-in-out 1.8s infinite; }
+  .node.balance::before  { animation-delay:0s; }
+  .node.momentum::before { animation-delay:.6s; }
+  .node.context::before  { animation-delay:1.2s; }
+  .node.structure::before{ animation-delay:1.8s; }
+  @keyframes dotPulse{ 0%,100%{ transform:scale(1); opacity:.9; } 50%{ transform:scale(1.6); opacity:1; } }
+  @keyframes nodeFloat{ 0%,100%{ transform:translate(-50%,-50%); } 50%{ transform:translate(-50%,calc(-50% - 5px)); } }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ animation-duration:.001s !important; animation-iteration-count:1 !important; }
+  }
+</style>
+
+<div id="scaler">
+  <div class="stage">
+
+    <div class="grid"></div>
+    <div class="glow"></div>
+
+    <!-- background candlestick chart -->
+    <svg class="chart" viewBox="0 0 1180 1080" preserveAspectRatio="xMidYMid slice">
+      <defs>
+        <linearGradient id="lineGrad" x1="0" y1="1" x2="1" y2="0">
+          <stop offset="0" stop-color="#0c8f80"/>
+          <stop offset="1" stop-color="#5cf0dc"/>
+        </linearGradient>
+      </defs>
+
+      <!-- reference lines -->
+      <line class="refline" x1="0" y1="130"  x2="1180" y2="130"  style="animation-delay:.2s"/>
+      <text class="reflabel" x="900" y="122"  style="animation-delay:.3s">SWING HIGH</text>
+      <line class="refline" x1="0" y1="470"  x2="1180" y2="470"  style="animation-delay:.4s"/>
+      <text class="reflabel" x="900" y="462"  style="animation-delay:.5s">EQ HIGH</text>
+      <line class="refline" x1="0" y1="770"  x2="1180" y2="770"  style="animation-delay:.6s"/>
+      <text class="reflabel" x="640" y="762"  style="animation-delay:.7s">EQ LOW</text>
+      <line class="refline" x1="0" y1="880"  x2="1180" y2="880"  style="animation-delay:.8s"/>
+      <text class="reflabel" x="900" y="872"  style="animation-delay:.9s">LIQUIDITY</text>
+
+      <!-- momentum line (rough uptrend) -->
+      <polyline class="momentum" points="20,880 130,840 240,860 350,770 470,800 580,690 690,720 800,560 910,590 1020,400 1120,215"/>
+      <g id="candles"></g>
+      <circle class="spark" cx="1120" cy="215" r="5"/>
+    </svg>
+
+    <!-- left content -->
+    <div class="content">
+      <div class="brandrow">
+        <div class="logo">
+          <svg viewBox="0 0 100 100" aria-hidden="true">
+            <path d="M50 8 L92 92 L66 92 L50 56 L34 92 L8 92 Z" fill="#f5f5f0"/>
+            <path d="M30 70 L63 41" fill="none" stroke="#18e3c8" stroke-width="7"
+                  stroke-linecap="round"/>
+            <path d="M63 41 L47 43 L57 55 Z" fill="#18e3c8"/>
+          </svg>
+          <span class="wm">AMT</span>
+        </div>
+        <div class="vdiv"></div>
+        <div class="brandtext">
+          <div class="b1">AMT<u>_</u>BALANCE</div>
+          <div class="b2">Analytical Market Theory</div>
+        </div>
+      </div>
+
+      <div class="headline" data-text="STREAM STARTING SOON">STREAM<br>STARTING SOON</div>
+      <div class="underline"></div>
+
+      <div class="tag">AMT IS STRUCTURE. PERIOD.</div>
+      <div class="sub">FUTURES &nbsp;·&nbsp; EQUITIES &nbsp;·&nbsp; MARKET STRUCTURE</div>
+
+      <div class="footer">
+        <div class="item">
+          <svg viewBox="0 0 24 24" class="ic"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm0 2c1.7 0 3.2 2.6 3.8 6H8.2C8.8 6.6 10.3 4 12 4zM4.3 10h3.4c-.1.6-.1 1.3-.1 2s0 1.4.1 2H4.3a8 8 0 010-4zm.9 6h3c.3 1.5.8 2.8 1.4 3.7A8 8 0 015.2 16zM12 20c-1.7 0-3.2-2.6-3.8-6h7.6C15.2 17.4 13.7 20 12 20zm.9-.3c.6-.9 1.1-2.2 1.4-3.7h3a8 8 0 01-4.4 3.7zM16.4 14c.1-.6.1-1.3.1-2s0-1.4-.1-2h3.4a8 8 0 010 4h-3.4zm-.1-8.7A8 8 0 0119.8 8h-3c-.3-1.1-.7-2.1-1.1-2.7z"/></svg>
+          AMTBALANCE.COM
+        </div>
+        <div class="sep"></div>
+        <div class="item">
+          <svg viewBox="0 0 24 24" class="ic"><path d="M21.6 7.2a2.5 2.5 0 00-1.8-1.8C18.2 5 12 5 12 5s-6.2 0-7.8.4A2.5 2.5 0 002.4 7.2 26 26 0 002 12a26 26 0 00.4 4.8 2.5 2.5 0 001.8 1.8C5.8 19 12 19 12 19s6.2 0 7.8-.4a2.5 2.5 0 001.8-1.8A26 26 0 0022 12a26 26 0 00-.4-4.8zM10 15V9l5.2 3z"/></svg>
+          @AMTBALANCE
+        </div>
+        <div class="sep"></div>
+        <div class="item">
+          <svg viewBox="0 0 24 24" class="ic"><path d="M17.5 3h3l-6.6 7.5L21.7 21h-6l-4.7-6.2L5.6 21H2.5l7.1-8L2.6 3h6.1l4.3 5.7zm-1 16h1.7L7.6 4.8H5.8z"/></svg>
+          @AMTBALANCE
+        </div>
+      </div>
+    </div>
+
+    <!-- radar -->
+    <div class="radar">
+      <div class="ring r1"></div>
+      <div class="ring r2"></div>
+      <div class="ring r3"></div>
+      <div class="ring r4"></div>
+      <div class="sweep"></div>
+
+      <svg class="svgoverlay" viewBox="0 0 520 520">
+        <defs>
+          <linearGradient id="connGrad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stop-color="#18e3c8" stop-opacity=".1"/>
+            <stop offset="1" stop-color="#18e3c8" stop-opacity=".9"/>
+          </linearGradient>
+        </defs>
+        <line class="connector" x1="260" y1="260" x2="260" y2="70"/>
+        <line class="connector" x1="260" y1="260" x2="450" y2="260"/>
+        <line class="connector" x1="260" y1="260" x2="260" y2="450"/>
+        <line class="connector" x1="260" y1="260" x2="70"  y2="260"/>
+        <circle class="ping p1" cx="260" cy="260" r="30"/>
+        <circle class="ping p2" cx="260" cy="260" r="30"/>
+      </svg>
+
+      <div class="center">AMT</div>
+      <div class="node balance">BALANCE</div>
+      <div class="node momentum">MOMENTUM</div>
+      <div class="node context">CONTEXT</div>
+      <div class="node structure">STRUCTURE</div>
+    </div>
+
+    <div class="vignette"></div>
+  </div>
+</div>
+
+<script>
+  /* ---- generate the candlestick series (deterministic, no RNG) ---- */
+  (function(){
+    const g = document.getElementById('candles');
+    const NS = 'http://www.w3.org/2000/svg';
+    // seeded pseudo-values so the chart is stable every load
+    let s = 1337;
+    const rnd = () => { s = (s*1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
+
+    const n = 46, x0 = 30, step = 24;
+    let y = 860;                 // start low-left
+    for (let i=0;i<n;i++){
+      const x = x0 + i*step;
+      const drift = -6.6;        // overall uptrend
+      const move = drift + (rnd()-0.5)*46;
+      const open = y;
+      let close = Math.max(120, Math.min(940, y + move));
+      const up = close < open;   // lower y = higher price
+      const bodyTop = Math.min(open, close);
+      const bodyH = Math.max(4, Math.abs(close-open));
+      const wickTop = bodyTop - (6 + rnd()*24);
+      const wickBot = bodyTop + bodyH + (6 + rnd()*24);
+
+      const cg = document.createElementNS(NS,'g');
+      cg.setAttribute('class','candle');
+      cg.style.animationDelay = (0.9 + i*0.05) + 's';
+
+      const wick = document.createElementNS(NS,'line');
+      wick.setAttribute('class','wick');
+      wick.setAttribute('x1',x); wick.setAttribute('x2',x);
+      wick.setAttribute('y1',wickTop); wick.setAttribute('y2',wickBot);
+      cg.appendChild(wick);
+
+      const body = document.createElementNS(NS,'rect');
+      body.setAttribute('class', up ? 'body-up' : 'body-dn');
+      body.setAttribute('x', x-7); body.setAttribute('y', bodyTop);
+      body.setAttribute('width', 14); body.setAttribute('height', bodyH);
+      body.setAttribute('rx', 2);
+      cg.appendChild(body);
+
+      g.appendChild(cg);
+      y = close;
+    }
+  })();
+
+  /* ---- fit the 1920x1080 stage to the viewport ---- */
+  (function(){
+    const stage = document.querySelector('.stage');
+    function fit(){
+      const s = Math.min(innerWidth/1920, innerHeight/1080);
+      stage.style.transform = 'scale(' + s + ')';
+    }
+    addEventListener('resize', fit); fit();
+  })();
+</script>
